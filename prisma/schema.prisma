@@ -1,0 +1,241 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  ACTIVE
+  DELETED
+  PENDING
+  DISABLED
+}
+
+enum ProvideStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  SELLER
+}
+
+enum ProductStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum SaleStatus {
+  FINISHED
+  CANCELED
+  PENDING
+}
+
+model User {
+  id         String        @id @default(cuid())
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  avatar     Files?        @relation(fields: [fileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  fileId     String?
+  firstName  String
+  lastName   String
+  email      String        @unique
+  password   String
+  status     AccountStatus @default(ACTIVE)
+  role       Role          @default(SELLER)
+  products   MyProduct[]
+  providers  Provide[]     @relation("provider")
+  recipients Provide[]     @relation("recipient")
+  Sale       Sale[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  name        String    @unique
+  description String
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              String            @id @default(cuid())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  name            String
+  description     String
+  status          ProductStatus     @default(ACTIVE)
+  purchasedPrice  Float             @default(0)
+  sellingPrice    Float             @default(0)
+  category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  categoryId      String
+  stock           Int               @default(0)
+  supplies        Supply[]
+  provides        Provide[]
+  MyProduct       MyProduct[]
+  FactureProducts FactureProducts[]
+  supplierId      String
+  supplier        Supplier          @relation(fields: [supplierId], references: [id])
+
+  @@index([id])
+  @@map("products")
+}
+
+model Supply {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  productId   String
+  description String?
+  quantity    Int      @default(0)
+
+  @@map("supplies")
+}
+
+model Provide {
+  id          String        @id @default(cuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  productId   String
+  description String?
+  quantity    Int           @default(0)
+  status      ProvideStatus @default(PENDING)
+  provider    User          @relation("provider", fields: [providerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  providerId  String
+  recipient   User          @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recipientId String
+
+  @@index([id, productId, providerId, recipientId])
+  @@map("provides")
+}
+
+model Facture {
+  id          String            @id @default(cuid())
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  reference   String            @unique
+  clientName  String?
+  clientPhone String?
+  description String?
+  amountPaid  Float             @default(0)
+  amountDue   Float             @default(0)
+  totalAmount Float             @default(0)
+  products    FactureProducts[]
+  sale        Sale[]
+  payment     Payment[]
+
+  @@index([id, reference])
+  @@map("factures")
+}
+
+model FactureProducts {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  facture      Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  factureId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  productId    String
+  quantity     Int      @default(0)
+  sellingPrice Float    @default(0)
+  totalAmount  Float    @default(0)
+
+  @@index([id, factureId, productId])
+  @@map("facture_products")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  facture   Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  factureId String
+  amount    Float    @default(0)
+
+  @@index([id, factureId])
+  @@map("payments")
+}
+
+model ProviderSupply {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  description String? // F. Jhonn
+  // nom
+  quantity    Int      @default(0) //  50
+  amount      Float    @default(0) // 1000
+  amountPaid  Float    @default(0) // 400
+  amountDue   Float    @default(0) // 600
+
+  @@map("provider_supplies")
+}
+
+model Sale {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  seller    User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId    String
+  status    SaleStatus @default(PENDING)
+  facture   Facture    @relation(fields: [factureId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  factureId String
+
+  @@index([id, factureId, userId])
+  @@map("sales")
+}
+
+model MyProduct {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  productId String
+  stock     Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId    String
+
+  @@index([id, productId, userId])
+  @@map("my-products")
+}
+
+model Files {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  width     Int?
+  height    Int?
+  size      Int
+  mime      String
+  url       String
+  users     User[]
+
+  @@map("files")
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  name      String
+  tel       String?
+  Products  Product[]
+
+  @@index([id])
+  @@map("suppliers")
+}
